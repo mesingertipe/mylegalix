@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./src
+      dockerfile: ./Legalix.API/Dockerfile
+    container_name: mylegalix-api
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Connect to host IP (usually 172.17.0.1 in Docker bridge or via extra_hosts)
+      ConnectionStrings__DefaultConnection: Host=host.docker.internal;Database=${DB_NAME:-mylegalix};Username=${DB_USER:-postgres};Password=${DB_PASSWORD:-password}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - mylegalix-network
+    expose:
+      - "8080"
+
+  web:
+    build:
+      context: ./src/Legalix.Web
+      dockerfile: Dockerfile
+    container_name: mylegalix-web
+    restart: always
+    depends_on:
+      - api
+    networks:
+      - mylegalix-network
+    ports:
+      - "80:80"
+
+networks:
+  mylegalix-network:
+    driver: bridge

@@ -1,0 +1,34 @@
+# Dotnet
+bin/
+obj/
+*.user
+*.userprep
+*.userosscache
+*.sln.doccache
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.doccache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+.docker/
