@@ -97,6 +97,7 @@ public static class DbInitializer
                 UserName = email,
                 Email = email,
                 FullName = fullName,
+                NationalId = "12345678", // Default for seed
                 EmailConfirmed = true,
                 CompanyId = companyId,
                 IsDeleted = false
@@ -111,6 +112,13 @@ public static class DbInitializer
         }
         else
         {
+            // Update NationalId if missing (for existing local DBs)
+            if (string.IsNullOrEmpty(user.NationalId))
+            {
+                user.NationalId = "12345678";
+                await userManager.UpdateAsync(user);
+            }
+
             // Ensure Role is correct
             if (!await userManager.IsInRoleAsync(user, role))
             {
