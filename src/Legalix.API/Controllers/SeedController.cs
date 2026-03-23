@@ -87,6 +87,25 @@ public class SeedController : ControllerBase
         return Ok("Entorno de validación recreado con éxito. Contraseña para todos: Legalix2024*");
     }
 
+    [HttpGet("migration-status")]
+    public async Task<IActionResult> GetMigrationStatus()
+    {
+        var applied = await _context.Database.GetAppliedMigrationsAsync();
+        var pending = await _context.Database.GetPendingMigrationsAsync();
+        var database = _context.Database.GetDbConnection().Database;
+        var host = _context.Database.GetDbConnection().DataSource;
+
+        return Ok(new
+        {
+            Database = database,
+            Host = host,
+            AppliedMigrations = applied,
+            PendingMigrations = pending,
+            TotalApplied = applied.Count(),
+            TotalPending = pending.Count()
+        });
+    }
+
     private async Task<User?> CreateUser(string email, string name, string role, Guid companyId, Guid? deptId)
     {
         var user = await _userManager.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == email);
