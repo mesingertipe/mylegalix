@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
 import { useToast } from '../context/ToastContext';
 import { Lock, ArrowRight, Loader2, KeyRound } from 'lucide-react';
+import api from '../services/api';
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
@@ -25,7 +25,7 @@ const ResetPasswordPage = () => {
 
     setIsLoading(true);
     try {
-      await axios.post('http://localhost:5001/api/auth/reset-password', {
+      await api.post('/auth/reset-password', {
         email,
         token,
         newPassword

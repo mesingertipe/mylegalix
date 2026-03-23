@@ -7,6 +7,7 @@ import Modal from '../components/UI/Modal';
 import Skeleton from '../components/UI/Skeleton';
 import SearchableSelect from '../components/UI/SearchableSelect';
 import { t } from '../utils/i18n';
+import api from '../services/api';
 
 const TenantManagement = () => {
   const { token, config } = useAuth();
@@ -28,9 +29,7 @@ const TenantManagement = () => {
 
   const fetchTenants = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/companies', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/companies');
       setTenants(response.data);
     } catch (error) {
       addToast(t('tenants.loadError', lang), 'error');
@@ -67,14 +66,10 @@ const TenantManagement = () => {
     setIsSubmitting(true);
     try {
       if (editingTenant) {
-        await axios.put(`http://localhost:5001/api/companies/${editingTenant.id}`, formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.put(`/companies/${editingTenant.id}`, formData);
         addToast(t('tenants.updateSuccess', lang), 'success');
       } else {
-        await axios.post('http://localhost:5001/api/companies', formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.post('/companies', formData);
         addToast(t('tenants.createSuccess', lang), 'success');
       }
       setIsModalOpen(false);
@@ -88,9 +83,7 @@ const TenantManagement = () => {
 
   const handleToggleStatus = async (id) => {
     try {
-      await axios.patch(`http://localhost:5001/api/companies/${id}/toggle-status`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.patch(`/companies/${id}/toggle-status`, {});
       addToast('Estado actualizado', 'success');
       fetchTenants();
     } catch (error) {
