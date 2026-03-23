@@ -33,7 +33,9 @@ builder.Services.AddCors(options =>
 
 // Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        b => b.MigrationsAssembly("Legalix.Infrastructure")));
 
 // Identity
 builder.Services.AddIdentity<User, Role>()
