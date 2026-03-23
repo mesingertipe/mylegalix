@@ -87,12 +87,12 @@ builder.Services.AddScoped<ITaxEventService, TaxEventService>();
 var app = builder.Build();
 
 // Enable Swagger in all environments for now (Debugging)
-app.UseSwagger();
+app.UseSwagger(c => {
+    c.RouteTemplate = "swagger/{documentName}/swagger.json";
+});
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("v1/swagger.json", "Legalix API V1");
-    // To serve the Swagger UI at the app's root (http://localhost:<port>/),
-    // set the RoutePrefix property to an empty string.
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Legalix API V1");
     c.RoutePrefix = "swagger";
 });
 
