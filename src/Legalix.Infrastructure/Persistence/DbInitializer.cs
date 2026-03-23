@@ -112,12 +112,10 @@ public static class DbInitializer
         }
         else
         {
-            // Update NationalId if missing (for existing local DBs)
-            if (string.IsNullOrEmpty(user.NationalId))
-            {
-                user.NationalId = "12345678";
-                await userManager.UpdateAsync(user);
-            }
+            // Force reset of vital info in development/seed environments
+            user.NationalId = "12345678";
+            user.PasswordHash = userManager.PasswordHasher.HashPassword(user, "Legalix2024*");
+            await userManager.UpdateAsync(user);
 
             // Ensure Role is correct
             if (!await userManager.IsInRoleAsync(user, role))
