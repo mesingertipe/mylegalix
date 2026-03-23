@@ -124,6 +124,10 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
+        
+        // 1. Ensure Migrations are applied
+        await context.Database.MigrateAsync();
+
         var userManager = services.GetRequiredService<UserManager<User>>();
         var roleManager = services.GetRequiredService<RoleManager<Role>>();
         await DbInitializer.SeedAsync(context, userManager, roleManager);
