@@ -85,12 +85,9 @@ builder.Services.AddScoped<ITaxEventService, TaxEventService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Enable Swagger in all environments for now (Debugging)
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseRouting();
 
