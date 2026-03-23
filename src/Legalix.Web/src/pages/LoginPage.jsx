@@ -38,7 +38,7 @@ const LoginPage = () => {
         navigate('/change-password');
       } else {
         addToast(t('login.welcome', lang), 'success');
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (error) {
       addToast(error, 'error');

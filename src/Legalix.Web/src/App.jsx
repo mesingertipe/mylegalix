@@ -59,7 +59,7 @@ const AppContent = ({ isDarkMode, toggleTheme }) => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/change-password" element={isAuthenticated ? <ChangePasswordPage /> : <LoginPage />} />
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LandingPage />} />
           <Route path="/dashboard" element={isAuthenticated ? <DashboardPage /> : <LoginPage />} />
           <Route path="/tenants" element={isAuthenticated && user?.role === 'SuperAdmin' ? <TenantManagement /> : <Navigate to="/" />} />
           <Route path="/departments" element={isAuthenticated ? <DepartmentsPage /> : <LoginPage />} />

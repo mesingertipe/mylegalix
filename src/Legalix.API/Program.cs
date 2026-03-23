@@ -26,9 +26,10 @@ builder.Services.AddSwaggerGen(c => {
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder => 
-        builder.AllowAnyOrigin()
+        builder.WithOrigins("http://localhost:5173", "https://mylegalix.com") // Add production URL too
                .AllowAnyMethod()
-               .AllowAnyHeader());
+               .AllowAnyHeader()
+               .AllowCredentials());
 });
 
 // Database
@@ -87,26 +88,15 @@ var app = builder.Build();
 
 // Enable Swagger in all environments for now (Debugging)
 app.UseSwagger();
-app.UseSwaggerUI();
-
-app.UseRouting();
-
-// Manual CORS fallback for development stability
-app.Use(async (context, next) =>
+app.UseSwaggerUI(c =>
 {
-    context.Response.Headers.Append("Access-Control-Allow-Origin", "http://localhost:5173");
-    context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    context.Response.Headers.Append("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Tenant-Id");
-    context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-
-    if (context.Request.Method == "OPTIONS")
-    {
-        context.Response.StatusCode = 204;
-        return;
-    }
-    await next();
+    c.SwaggerEndpoint("v1/swagger.json", "Legalix API V1");
+    // To serve the Swagger UI at the app's root (http://localhost:<port>/),
+    // set the RoutePrefix property to an empty string.
+    c.RoutePrefix = "swagger";
 });
 
+app.UseRouting();
 app.UseCors("AllowAll");
 
 // app.UseHttpsRedirection();
@@ -127,7 +117,12 @@ using (var scope = app.Services.CreateScope())
 
         var userManager = services.GetRequiredService<UserManager<User>>();
         var roleManager = services.GetRequiredService<RoleManager<Role>>();
-        await DbInitializer.SeedAsync(context, userManager, roleManager);
+        
+        // Seeding as a separate background-like task to not block App.Run
+        _ = DbInitializer.SeedAsync(context, userManager, roleManager)
+            .ContinueWith(t => {
+                if (t.IsFaulted) Console.WriteLine("Initial seed failed, but app is running.");
+            });
     }
     catch (Exception ex)
     {

@@ -38,7 +38,7 @@ public class AuthService : IAuthService
             .Include(u => u.Department)
             .Include(u => u.ReportsTo)
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.NormalizedEmail == request.Email.ToUpperInvariant());
+            .FirstOrDefaultAsync(u => u.NormalizedEmail == request.Email.Trim().ToUpperInvariant());
              
         if (user == null || user.IsDeleted) throw new Exception("Credenciales inválidas");
 

@@ -24,13 +24,148 @@ public class SeedController : ControllerBase
     [HttpPost("setup-test-data")]
     public async Task<IActionResult> SetupTestData()
     {
-        // 0. Ensure Database Schema exists
-        await _context.Database.MigrateAsync();
+        try 
+        {
+            // 0. Ensure Database Schema exists
+            await _context.Database.MigrateAsync();
 
-        // Use the centralized SeedAsync from Infrastructure
-        await DbInitializer.SeedAsync(_context, _userManager, _roleManager);
+            // Use the centralized SeedAsync from Infrastructure
+            await DbInitializer.SeedAsync(_context, _userManager, _roleManager);
 
-        return Ok("Entorno de validación recreado con éxito. Contraseña para todos: Legalix2024* - ID Nacional: 12345678");
+            var admin = await _userManager.FindByEmailAsync("admin@legalix.com");
+            var hasId = !string.IsNullOrEmpty(admin?.NationalId);
+
+            return Ok(new {
+                Message = "Entorno recreado con éxito",
+                AdminReset = admin != null,
+                NationalIdSet = hasId,
+                ExpectedNationalId = "12345678",
+                ExpectedPassword = "Legalix2024*",
+                RoleVerified = admin != null && await _userManager.IsInRoleAsync(admin, "SuperAdmin")
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Error = ex.Message, Stack = ex.StackTrace });
+        }
+    }
+
+    [HttpGet("force-reset-admin")]
+    public async Task<IActionResult> ForceResetAdmin()
+    {
+        try 
+        {
+            var adminEmail = "admin@legalix.com";
+            var user = await _context.Users.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.NormalizedEmail == adminEmail.ToUpperInvariant());
+            
+            if (user != null)
+            {
+                // Clear dependencies to avoid FK violations
+                var dependents = await _context.Users.Where(u => u.ReportsToId == user.Id).ToListAsync();
+                foreach (var d in dependents) d.ReportsToId = null;
+
+                var managedDepts = await _context.Departments.Where(d => d.ManagerId == user.Id).ToListAsync();
+                foreach (var d in managedDepts) d.ManagerId = null;
+
+                await _context.SaveChangesAsync();
+                await _userManager.DeleteAsync(user);
+            }
+
+            var company = await _context.Companies.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Name == "Legalix HQ" || c.Name == "Legalix Demo Corp");
+            if (company == null)
+            {
+                company = new Company { Id = Guid.NewGuid(), Name = "Legalix Demo Corp", Nit = "123", IsDeleted = false };
+                _context.Companies.Add(company);
+                await _context.SaveChangesAsync();
+            }
+
+            var newUser = new User
+            {
+                Id = Guid.NewGuid(),
+                UserName = adminEmail,
+                Email = adminEmail,
+                NormalizedEmail = adminEmail.ToUpperInvariant(),
+                NormalizedUserName = adminEmail.ToUpperInvariant(),
+                FullName = "Admin Super",
+                NationalId = "12345678",
+                EmailConfirmed = true,
+                CompanyId = company.Id,
+                IsDeleted = false
+            };
+
+            var result = await _userManager.CreateAsync(newUser, "Legalix2024*");
+            if (!result.Succeeded) return BadRequest(result.Errors);
+
+            // Add role
+            if (!await _roleManager.RoleExistsAsync("SuperAdmin"))
+                await _roleManager.CreateAsync(new Role { Id = Guid.NewGuid(), Name = "SuperAdmin" });
+            
+            await _userManager.AddToRoleAsync(newUser, "SuperAdmin");
+
+            return Ok(new { Message = "ADMIN RECREADO CON ÉXITO", NationalId = "12345678", Password = "Legalix2024*" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [HttpGet("seed-dev")]
+    public async Task<IActionResult> SeedDev()
+    {
+        try 
+        {
+            var devEmail = "dev@legalix.com";
+            var user = await _context.Users.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.NormalizedEmail == devEmail.ToUpperInvariant());
+            
+            if (user == null)
+            {
+                var hq = await _context.Companies.IgnoreQueryFilters().FirstOrDefaultAsync();
+                user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = devEmail,
+                    Email = devEmail,
+                    NormalizedEmail = devEmail.ToUpperInvariant(),
+                    NormalizedUserName = devEmail.ToUpperInvariant(),
+                    FullName = "Dev User",
+                    EmailConfirmed = true,
+                    CompanyId = hq?.Id ?? Guid.NewGuid(),
+                    IsDeleted = false,
+                    SecurityStamp = Guid.NewGuid().ToString()
+                };
+                var createResult = await _userManager.CreateAsync(user, "Legalix2024*");
+                if (!createResult.Succeeded) return BadRequest(createResult.Errors);
+            }
+            else 
+            {
+                user.PasswordHash = _userManager.PasswordHasher.HashPassword(user, "Legalix2024*");
+                user.NormalizedEmail = devEmail.ToUpperInvariant();
+                user.NormalizedUserName = devEmail.ToUpperInvariant();
+                user.SecurityStamp = Guid.NewGuid().ToString();
+                await _userManager.UpdateAsync(user);
+            }
+
+            if (!await _roleManager.RoleExistsAsync("SuperAdmin"))
+                await _roleManager.CreateAsync(new Role { Id = Guid.NewGuid(), Name = "SuperAdmin" });
+
+            await _userManager.AddToRoleAsync(user, "SuperAdmin");
+            
+            return Ok(new { 
+                Status = "LISTO",
+                Email = user.Email,
+                NormalizedEmail = user.NormalizedEmail,
+                HashLength = user.PasswordHash?.Length,
+                Role = "SuperAdmin",
+                Password = "Legalix2024*"
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Error = ex.Message, Trace = ex.StackTrace });
+        }
     }
 
     [HttpGet("migration-status")]

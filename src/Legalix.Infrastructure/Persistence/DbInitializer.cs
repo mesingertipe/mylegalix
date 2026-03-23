@@ -51,16 +51,19 @@ public static class DbInitializer
         }
 
         // 4. Seed Super Admin (Global)
-        await CreateUserIfNotExist(userManager, "admin@legalix.com", "Tito Alejandro", "SuperAdmin", hqCompany.Id);
+        await CreateUserIfNotExist(context, userManager, "admin@legalix.com", "Tito Alejandro", "SuperAdmin", hqCompany.Id);
+        
+        // Secondary Super Admin for recovery/dev
+        await CreateUserIfNotExist(context, userManager, "dev@legalix.com", "Dev Recovery", "SuperAdmin", hqCompany.Id);
 
         // 5. Seed Tenant Admin (Demo Corp)
-        await CreateUserIfNotExist(userManager, "admin@democorp.com", "Admin Demo Corp", "TenantAdmin", demoCompany.Id);
+        await CreateUserIfNotExist(context, userManager, "admin@democorp.com", "Admin Demo Corp", "TenantAdmin", demoCompany.Id);
 
         // 6. Seed Accountant (Demo Corp)
-        await CreateUserIfNotExist(userManager, "contable@democorp.com", "Carlos Contador", "Accountant", demoCompany.Id);
+        await CreateUserIfNotExist(context, userManager, "contable@democorp.com", "Carlos Contador", "Accountant", demoCompany.Id);
 
         // 7. Seed Area Leader & Department (Demo Corp)
-        var leader = await CreateUserIfNotExist(userManager, "leader@democorp.com", "Laura Líder", "AreaLeader", demoCompany.Id);
+        var leader = await CreateUserIfNotExist(context, userManager, "leader@democorp.com", "Laura Líder", "AreaLeader", demoCompany.Id);
         
         var department = await context.Departments.IgnoreQueryFilters().FirstOrDefaultAsync(d => d.Name == "Ventas" && d.CompanyId == demoCompany.Id);
         if (department == null && leader != null)
@@ -78,7 +81,7 @@ public static class DbInitializer
         }
 
         // 8. Seed Regular User (Demo Corp)
-        var regularUser = await CreateUserIfNotExist(userManager, "user@democorp.com", "Uriel Usuario", "User", demoCompany.Id);
+        var regularUser = await CreateUserIfNotExist(context, userManager, "user@democorp.com", "Uriel Usuario", "User", demoCompany.Id);
         if (regularUser != null && department != null)
         {
             regularUser.DepartmentId = department.Id;
@@ -86,45 +89,55 @@ public static class DbInitializer
         }
     }
 
-    private static async Task<User?> CreateUserIfNotExist(UserManager<User> userManager, string email, string fullName, string role, Guid companyId)
+    private static async Task<User?> CreateUserIfNotExist(ApplicationDbContext context, UserManager<User> userManager, string email, string fullName, string role, Guid companyId)
     {
-        var user = await userManager.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == email);
-        if (user == null)
+        try 
         {
-            user = new User
+            // Use the context directly to ensure we ignore ALL filters and find the user even if they are in another tenant
+            var user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.NormalizedEmail == email.ToUpperInvariant());
+            
+            if (user == null)
             {
-                Id = Guid.NewGuid(),
-                UserName = email,
-                Email = email,
-                FullName = fullName,
-                NationalId = "12345678", // Default for seed
-                EmailConfirmed = true,
-                CompanyId = companyId,
-                IsDeleted = false
-            };
+                user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = email,
+                    Email = email,
+                    FullName = fullName,
+                    NationalId = "12345678", // Default for seed
+                    EmailConfirmed = true,
+                    CompanyId = companyId,
+                    IsDeleted = false
+                };
 
-            var result = await userManager.CreateAsync(user, "Legalix2024*");
-            if (result.Succeeded)
+                var result = await userManager.CreateAsync(user, "Legalix2024*");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(user, role);
+                    return user;
+                }
+            }
+            else
             {
-                await userManager.AddToRoleAsync(user, role);
+                // Force reset of vital info in development/seed environments
+                user.NationalId = "12345678";
+                user.PasswordHash = userManager.PasswordHasher.HashPassword(user, "Legalix2024*");
+                await userManager.UpdateAsync(user);
+
+                // Ensure Role is correct
+                if (!await userManager.IsInRoleAsync(user, role))
+                {
+                    var currentRoles = await userManager.GetRolesAsync(user);
+                    await userManager.RemoveFromRolesAsync(user, currentRoles);
+                    await userManager.AddToRoleAsync(user, role);
+                }
                 return user;
             }
         }
-        else
+        catch (Exception ex)
         {
-            // Force reset of vital info in development/seed environments
-            user.NationalId = "12345678";
-            user.PasswordHash = userManager.PasswordHasher.HashPassword(user, "Legalix2024*");
-            await userManager.UpdateAsync(user);
-
-            // Ensure Role is correct
-            if (!await userManager.IsInRoleAsync(user, role))
-            {
-                var currentRoles = await userManager.GetRolesAsync(user);
-                await userManager.RemoveFromRolesAsync(user, currentRoles);
-                await userManager.AddToRoleAsync(user, role);
-            }
+            Console.WriteLine($"[SEED ERROR] Failed to seed/update {email}: {ex.Message}");
         }
-        return user;
+        return null;
     }
 }
