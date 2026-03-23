@@ -24,6 +24,9 @@ public class SeedController : ControllerBase
     [HttpPost("setup-test-data")]
     public async Task<IActionResult> SetupTestData()
     {
+        // 0. Ensure Database Schema exists
+        await _context.Database.MigrateAsync();
+
         // 1. Ensure Roles
         var roles = new[] { "SuperAdmin", "TenantAdmin", "AreaLeader", "Accountant", "User" };
         foreach (var r in roles)
